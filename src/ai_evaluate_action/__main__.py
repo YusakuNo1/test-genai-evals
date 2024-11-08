@@ -17,6 +17,10 @@ def main(
 ) -> None:
     action_config_path = Path(action_config_path).resolve()
     evaluate_config_path = Path(evaluate_config_path).resolve()
+
+    print("* * action_config_path:", action_config_path)
+    print("* * evaluate_config_path:", evaluate_config_path)
+
     summary_path = Path(summary_path).resolve() if summary_path is not None else None
 
     action_config = ActionConfig.model_validate_json(action_config_path.read_text(encoding="utf-8"))
