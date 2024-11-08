@@ -1,0 +1,73 @@
+name: Evaluate
+description: |
+    A github action for running evaluations in CI.
+inputs:
+    evaluate-configuration:
+      description: The configuration file for evaluation.
+      required: true
+    show-summary:
+      description: Whether to show the evaluation summary.
+      required: false
+      default: 'true'
+    show-raw-output:
+      description: Whether to show the raw output.
+      required: false
+      default: 'true'
+outputs:
+    results:
+      description: The evaluation results. Results are returned in jsonl format
+      value: ${{ steps.run-evaluation.outputs.results }}
+    summary:
+      description: The evaluation summary, rendered as a markdown file.
+      value: ${{ steps.run-evaluation.outputs.summary }}
+runs:
+    using: "composite"
+    steps:
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Dependencies
+        run: |
+          : pip install "${{ github.action_path }}"
+          echo "::group::pip install"
+          pip install "${{ github.action_path }}"
+          echo "::endgroup::"
+        shell: bash
+      - name: Generate Config
+        run: |
+          cat > ${{ github.action_path }}/action-config.json << EOF
+            {
+              "output_path": "${{ github.action_path }}/results.jsonl",
+              "show_raw_output": ${{ toJSON(inputs.show-raw-output) }}
+            }
+          EOF
+        shell: bash
+      - name: Run Evaluation
+        id: run-evaluation
+        run: |
+          python -m ai_evaluate_action \
+            --evaluate-config "${{ inputs.evaluate-configuration }}" \
+            --action-config  "${{ github.action_path }}/action-config.json" \
+            --summary "${{ github.action_path }}/summary.md"
+
+          {
+            echo 'results<<EOF'
+            cat "${{ github.action_path }}/results.jsonl"
+            echo ""
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo 'summary<<EOF'
+            cat "${{ github.action_path }}/summary.md"
+            echo ""
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+        shell: bash
+      - name: Write Job Summary
+        if: inputs.show-summary == 'true'
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<'EOF'
+          ${{ steps.run-evaluation.outputs.summary }}
+          EOF
+        shell: bash
